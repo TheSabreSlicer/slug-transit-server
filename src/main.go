@@ -5,14 +5,20 @@ import (
     "log"
     "net/http"
     "github.com/gorilla/mux"
-    "github.com/shopspring/decimal"
+    "math/big"
+    "time"
+    "io/ioutil"
 )
 
 type ActiveBus struct {
     ID string
-    Lat Decimal
-    Lon Decimal
+    Lat big.Rat
+    Lon big.Rat
     Type string
+}
+
+type ActiveBusList struct {
+    Collection []ActiveBus
 }
 
 func main() {
@@ -21,13 +27,24 @@ func main() {
     log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-var myClient = &http.Client{Timeout: 2 * time.Second}
+var client = &http.Client{Timeout: 2 * time.Second}
 
-func getActive(target interface{}) error {
-    r, err := myClient.Get("http://bts.ucsc.edu:8081/location/get")
+func GetActive(w http.ResponseWriter, r *http.Request) {
+    resp, err := client.Get("http://bts.ucsc.edu:8081/location/get")
     if err != nil {
-        return err
+        return
     }
-    defer r.Body.Close()
-    return json.NewDecoder(r.Body).Decode(target)
+    defer resp.Body.Close()
+
+    bodyBytes, err2 := ioutil.ReadAll(resp.Body)
+
+    if err2 != nil {
+        return
+    }
+    
+    busses := make([]ActiveBus,0)
+    json.Unmarshal(bodyBytes, &busses)
+    enc := json.NewEncoder(w)
+    enc.Encode(busses)
+    return
 }
